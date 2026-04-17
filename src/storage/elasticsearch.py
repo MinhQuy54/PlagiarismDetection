@@ -3,20 +3,24 @@ from datetime import datetime
 from typing import List, Optional
 
 from elasticsearch import Elasticsearch, helpers
-from src.config import settings
+from src.config.settings import  get_settings
 
 logger = logging.getLogger(__name__)
 
 class ESClient:
     def __init__(self):
+        es_url = f"{get_settings().es_scheme}://{get_settings().es_host}:{get_settings().es_port}"
+        
+        logger.info(f"Connecting to Elasticsearch at: {es_url}")
+        
         self.client = Elasticsearch(
-            [settings.ES_HOST],
+            es_url, 
             retry_on_timeout=True,
             max_retries=3
         )
             
     def create_index(self):
-        index_name = settings.ES_INDEX_NAME
+        index_name = get_settings().es_index
         mapping = {
             "mappings": {
                 "properties": {
@@ -47,7 +51,7 @@ class ESClient:
         """Nạp nhiều đoạn văn bản cùng lúc vào ES"""
         actions = [
             {
-                "_index": settings.ES_INDEX_NAME,
+                "_index": get_settings().es_index,
                 "_source": {
                     **chunk,
                     "created_at": datetime.utcnow()
@@ -72,7 +76,7 @@ class ESClient:
         }
         try:
             response = self.client.search(
-                index=settings.ES_INDEX_NAME,
+                index=get_settings().es_index,
                 knn=knn_query,
                 source=["document_id", "content", "metadata"]
             )
@@ -85,7 +89,7 @@ class ESClient:
         """Xóa toàn bộ các chunk của một tài liệu"""
         query = {"query": {"term": {"document_id": document_id}}}
         try:
-            return self.client.delete_by_query(index=settings.ES_INDEX_NAME, body=query)
+            return self.client.delete_by_query(index=get_settings().es_index, body=query)
         except Exception as e:
             logger.error(f"Delete error: {e}")
             return None

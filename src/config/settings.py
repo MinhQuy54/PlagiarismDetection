@@ -23,7 +23,12 @@ class Settings(BaseSettings):
         default="llama3.2", description="Chat model for analysis"
     )
     ollama_timeout: int = Field(default=60, description="Request timeout in seconds")
-
+     
+     # Text Chunking
+    chunk_size: int = Field(default=100, description="Words per chunk")
+    chunk_overlap: int = Field(default=20, description="Overlap between chunks")
+    min_chunk_size: int = Field(default=30, description="Minimum chunk size")
+    min_content_length: int = Field(default=200, description="Minimum content length in chars to index")
 
 @lru_cache()
 def get_settings() -> Settings:

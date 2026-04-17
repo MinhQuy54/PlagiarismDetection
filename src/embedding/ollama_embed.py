@@ -1,7 +1,7 @@
 
 import httpx, logging
 from typing import Optional
-from src.config import get_settings
+from src.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class OllamaEmbeddingClient:
                 base_url=self.base_url,
                 timeout=httpx.Timeout(self.timeout)
             )
-        return self.client
+        return self._client
     
     def health_check(self) -> dict:
         try:
@@ -54,6 +54,8 @@ class OllamaEmbeddingClient:
             )
             response.raise_for_status()
             data = response.json()
+            if "embeddings" in data and len(data["embeddings"]) > 0:
+                return data["embeddings"][0]
             return data.get("embedding", [])
         except Exception as e:
             logger.error(f"Embedding error: {e}")

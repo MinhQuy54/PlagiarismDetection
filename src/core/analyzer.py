@@ -179,7 +179,7 @@ class OllamaAnalyzer(BaseAnalyzer):
     
 _analyzer: Optional[BaseAnalyzer] = None
 
-def get_analyze() -> BaseAnalyzer:
+def get_analyzer() -> BaseAnalyzer:
     
     global _analyzer
     if _analyzer is None:
