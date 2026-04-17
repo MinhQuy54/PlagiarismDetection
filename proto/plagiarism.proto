@@ -1,0 +1,265 @@
+syntax = "proto3";
+
+package plagiarism;
+
+// Dịch vụ kiểm tra đạo văn (Plagiarism Detection Service)
+service PlagiarismService {
+  // Kiểm tra đạo văn cho một đoạn văn bản thuần
+  rpc CheckPlagiarism(CheckRequest) returns (CheckResponse);
+
+  // Upload tài liệu vào cơ sở dữ liệu (Vector DB / Elasticsearch)
+  rpc UploadDocument(UploadRequest) returns (UploadResponse);
+
+  // Upload số lượng lớn tài liệu bằng Stream (tối ưu bộ nhớ)
+  rpc BatchUpload(stream UploadRequest) returns (BatchUploadResponse);
+
+  // Lấy thông tin tài liệu theo ID
+  rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse);
+
+  // Xóa tài liệu khỏi hệ thống
+  rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
+
+  // Tìm kiếm tài liệu dựa trên Metadata (Tác giả, năm, loại...)
+  rpc SearchDocuments(SearchRequest) returns (SearchResponse);
+
+  // Kiểm tra sức khỏe hệ thống (Check kết nối DB, AI model)
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+
+  // Quy trình RAG: Lấy PDF từ MinIO -> Trích xuất text -> Chunking -> Index vào ES/Qdrant
+  rpc IndexPdfFromMinio(IndexDocumentFromMinioRequest) returns (IndexDocumentFromMinioResponse);
+
+  // Kiểm tra đạo văn trực tiếp từ file PDF lưu trên MinIO
+  rpc CheckPdfFromMinio(CheckDocumentFromMinioRequest) returns (CheckDocumentFromMinioResponse);
+}
+
+message CheckRequest {
+    string text = 1;
+    CheckOptions options = 2;
+}
+message CheckOptions {
+    optional float min_similarity = 1;
+    optional int32 top_k = 2;
+    optional bool include_ai_analysis = 3;
+    repeated string exclude_docs = 4;
+}
+message CheckResponse {
+    string request_id = 1;
+    float plagiarism_percentage = 2; // % Dao van tong the
+    Severity severity = 3; // Muc do nghiem trong
+    string explanation = 4; // Loi gioi thich tu Ollama
+    repeated Match matches = 5; 
+    repeated ChunkAnalysis chunks = 6;
+    Metadata metadata = 7;
+}
+
+enum Severity {
+    SAFE = 0;
+    LOW = 1;
+    MEDIUM = 2;
+    HIGH = 3;
+    CRITICAL = 4;
+}
+
+message Match {
+    string document_id = 1;
+    string document_title = 2;
+    string matched_text = 3;            
+    string input_text = 4;              
+    float similarity_score = 5;   
+    Position position = 6;
+}
+
+message Position {
+    int32 start_char = 1;
+    int32 end_char = 2;
+    int32 start_word = 3;
+    int32 end_word = 4;
+}
+
+message ChunkAnalysis {
+    int32 chunk_index = 1;
+    string text = 2;
+    float similarity_score = 3;
+    bool is_plagiarized = 4;
+    string source_document_id = 5;
+    string source_text = 6;
+}
+
+message Metadata {
+    int64 processing_time_ms = 1;
+    int32 chunks_analyzed = 2;
+    int32 documents_searched = 3;
+    string model_used = 4;
+}
+
+// --- UPLOAD FILE --- 
+
+message UploadRequest {
+  string title = 1;                 
+  string content = 2;               
+  map<string, string> metadata = 3;
+  string language = 4;    
+}
+
+message UploadResponse {
+  string document_id = 1;
+  string title = 2;
+  int32 chunks_created = 3;
+  string message = 4;
+  bool success = 5;
+}
+
+message BatchUploadResponse {
+  int32 total_documents = 1;
+  int32 successful = 2;
+  int32 failed = 3;
+  repeated UploadResult results = 4;
+}
+
+message UploadResult {
+  string document_id = 1;
+  string title = 2;
+  bool success = 3;
+  string error = 4;
+}
+// --- Get Document ---
+
+message GetDocumentRequest {
+  string document_id = 1;
+  bool include_content = 2;           // Include full content (default: false)
+  bool include_chunks = 3;            // Include chunk details (default: false)
+}
+
+message GetDocumentResponse {
+  Document document = 1;
+  bool found = 2;
+}
+
+message Document {
+  string document_id = 1;
+  string title = 2;
+  string content = 3;
+  map<string, string> metadata = 4;
+  string language = 5;
+  int32 chunk_count = 6;
+  repeated Chunk chunks = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message Chunk {
+  string chunk_id = 1;
+  string text = 2;
+  int32 position = 3;
+  int32 word_count = 4;
+}
+
+// --- Delete Document ---
+
+message DeleteDocumentRequest {
+  string document_id = 1;
+}
+
+message DeleteDocumentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// --- Search Documents ---
+
+message SearchRequest {
+  string query = 1;                   // Text query
+  map<string, string> filters = 2;    // Metadata filters
+  int32 limit = 3;                    // Max results (default: 10)
+  int32 offset = 4;                   // Pagination offset
+}
+
+message SearchResponse {
+  repeated DocumentSummary documents = 1;
+  int32 total = 2;
+}
+
+message DocumentSummary {
+  string document_id = 1;
+  string title = 2;
+  map<string, string> metadata = 3;
+  string language = 4;
+  int32 chunk_count = 5;
+  string created_at = 6;
+}
+
+// ---Health Check---
+
+message HealthCheckRequest {}
+message HealthCheckResponse {
+  bool healthy = 1;
+  map<string, string> details = 2; // Ví dụ: {"qdrant": "up", "ollama": "busy"}
+}
+
+
+message ComponentHealth {
+  bool healthy = 1;
+  string message = 2;
+  int64 latency_ms = 3;
+}
+
+// -- Index PDF from MinIO
+message IndexDocumentFromMinioRequest {
+    string bucket_name = 1;
+    string object_path = 2;
+    string document_id = 3;
+    string title = 4;
+    map<string, string> metadata = 5;
+    string language = 6;
+}
+message IndexDocumentFromMinioResponse {
+    bool success = 1;
+    string document_id = 2;
+    string title = 3;
+    repeated PdfChunkInfo chunks = 4;
+    string message = 5;
+}
+message PdfChunkInfo {
+    string chunk_id = 1;
+    string section_title = 2;           
+    string content_preview = 3;         
+    string element_type = 4;            
+    int32 position = 5;
+}
+message PdfProcessingMetadata {
+  int32 total_pages = 1;
+  int32 total_elements = 2;           // Total elements extracted from PDF
+  int32 total_chunks = 3;             // Final chunks after grouping
+  int64 processing_time_ms = 4;
+  string pdf_title = 5;               // Title extracted from PDF metadata
+  string pdf_author = 6;              // Author from PDF metadata
+}
+
+// Check PDF Plagiarism from MinIO 
+message CheckDocumentFromMinioRequest {
+  string bucket_name = 1;
+  string object_path = 2;
+  CheckOptions options = 3;
+}
+
+message CheckDocumentFromMinioResponse {
+  bool success = 1;
+  string request_id = 2;
+  float plagiarism_percentage = 3;
+  Severity severity = 4;
+  string explanation = 5;
+  repeated Match matches = 6;
+  string error_message = 7;
+}
+
+message PdfCheckMetadata {
+  int64 processing_time_ms = 1;       // Total processing time
+  int64 pdf_extraction_time_ms = 2;   // Time to extract PDF
+  int64 embedding_time_ms = 3;        // Time to generate embeddings
+  int64 search_time_ms = 4;           // Time to search
+  int32 total_pages = 5;
+  int32 total_chunks = 6;
+  int32 chunks_analyzed = 7;
+  int32 documents_searched = 8;
+  string model_used = 9;
+}
