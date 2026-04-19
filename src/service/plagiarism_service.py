@@ -7,11 +7,11 @@ from src import plagiarism_pb2, plagiarism_pb2_grpc
 
 from src.core import (
     get_detector,
-    get_document_manager,
     PlagiarismResult,
     PdfPlagiarismResult,
 )
-from src.storage import get_es_client
+from src.core.document_manager import get_document_manager
+from src.storage.elasticsearch import get_es_client
 
 logger = logging.getLogger(__name__)
 
@@ -419,9 +419,9 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
 
     def CheckPdfFromMinio(
         self,
-        request: plagiarism_pb2.CheckPdfFromMinioRequest,
+        request: plagiarism_pb2.CheckDocumentFromMinioRequest,
         context: grpc.ServicerContext,
-    ) -> plagiarism_pb2.CheckPdfFromMinioResponse:
+    ) -> plagiarism_pb2.CheckDocumentFromMinioResponse:
         """Check a PDF file from MinIO for plagiarism."""
         try:
             logger.info(
@@ -458,14 +458,14 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
             logger.error(f"CheckPdfFromMinio error: {e}", exc_info=True)
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return plagiarism_pb2.CheckPdfFromMinioResponse(
+            return plagiarism_pb2.CheckDocumentFromMinioResponse(
                 success=False,
                 error_message=str(e),
             )
 
     def _build_pdf_check_response(
         self, result: PdfPlagiarismResult
-    ) -> plagiarism_pb2.CheckPdfFromMinioResponse:
+    ) -> plagiarism_pb2.CheckDocumentFromMinioResponse:
         """Build gRPC response from PdfPlagiarismResult."""
         # Convert severity string to enum
         severity_map = {
@@ -522,7 +522,7 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
             model_used=result.metadata.model_used,
         )
 
-        return plagiarism_pb2.CheckPdfFromMinioResponse(
+        return plagiarism_pb2.CheckDocumentFromMinioResponse(
             success=result.success,
             request_id=result.request_id,
             document_title=result.document_title,

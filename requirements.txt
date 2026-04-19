@@ -19,7 +19,7 @@ tiktoken>=0.5.2
 langdetect>=1.0.9
 
 # PDF processing with PaddleOCR
-# unstructured[pdf,ocr-paddle]>=0.11.0 
+unstructured[pdf,ocr-paddle]>=0.11.0
 
 # MinIO storage
 minio>=7.2.0
