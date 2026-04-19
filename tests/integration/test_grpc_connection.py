@@ -6,7 +6,7 @@ from src import plagiarism_pb2_grpc
 def test_health_check():
     """Kiểm tra xem Server có đang sống và phản hồi không"""
     # 1. Tạo channel kết nối
-    channel = grpc.insecure_channel('localhost:50051')
+    channel = grpc.insecure_channel('[IP_ADDRESS]')
     stub = plagiarism_pb2_grpc.PlagiarismServiceStub(channel)
     
     # 2. Gửi request

@@ -132,12 +132,14 @@ class TestPlagiarismDetector:
                 text="a",
                 max_similarity=0.9,
                 status="HIGH",
+                is_plagiarized=True,
             ),
             ChunkAnalysisResult(
                 chunk_index=1,
                 text="b",
                 max_similarity=0.5,
                 status="LOW",
+                is_plagiarized=True,
             ),
         ]
 

@@ -85,9 +85,10 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
                     input_text=m.input_text,
                     similarity_score=m.similarity_score,
                     position=plagiarism_pb2.Position(
-                        start=m.position_start,
-                        end=m.position_end,
-                        chunk_index=m.chunk_index,
+                        start_char=m.position_start,
+                        end_char=m.position_end,
+                        start_word=0,
+                        end_word=0,
                     ),
                 )
             )
@@ -99,9 +100,10 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
                 plagiarism_pb2.ChunkAnalysis(
                     chunk_index=c.chunk_index,
                     text=c.text,
-                    max_similarity=c.max_similarity,
-                    status=severity_map.get(c.status, plagiarism_pb2.SAFE),
-                    best_match_doc_id=c.best_match_doc_id or "",
+                    similarity_score=c.max_similarity,
+                    is_plagiarized=c.is_plagiarized,
+                    source_document_id=c.best_match_doc_id or "",
+                    source_text=c.best_match_text or "",
                 )
             )
         
@@ -316,27 +318,23 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
         try:
             stats = self.document_manager.get_stats()
 
-            components = {}
+            details = {}
 
             # Elasticsearch health
             es_health = stats.get("es_health", {})
-            components["elasticsearch"] = plagiarism_pb2.ComponentHealth(
-                healthy=es_health.get("healthy", False),
-                message=es_health.get("status", es_health.get("error", "Unknown")),
-            )
+            es_is_healthy = es_health.get("healthy", False)
+            details["elasticsearch"] = es_health.get("status", es_health.get("error", "Unknown"))
 
             # Ollama health
             ollama_health = stats.get("ollama_health", {})
-            components["ollama"] = plagiarism_pb2.ComponentHealth(
-                healthy=ollama_health.get("healthy", False),
-                message="Available" if ollama_health.get("healthy") else ollama_health.get("error", "Unknown"),
-            )
+            ollama_is_healthy = ollama_health.get("healthy", False)
+            details["ollama"] = "Available" if ollama_is_healthy else ollama_health.get("error", "Unknown")
 
-            overall_healthy = all(c.healthy for c in components.values())
+            overall_healthy = es_is_healthy and ollama_is_healthy
 
             return plagiarism_pb2.HealthCheckResponse(
                 healthy=overall_healthy,
-                components=components,
+                details=details,
             )
 
         except Exception as e:

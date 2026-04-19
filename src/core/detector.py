@@ -27,8 +27,10 @@ class ChunkAnalysisResult:
     text: str
     max_similarity: float
     status: str
+    is_plagiarized: bool
     best_match_doc_id: Optional[str] = None
     best_match_title: Optional[str] = None
+    best_match_text: Optional[str] = None
     matches: list[SearchResult] = field(default_factory=list)
 
 
@@ -234,6 +236,7 @@ class PlagiarismDetector:
                 text=chunk.text,
                 max_similarity=0.0,
                 status="SAFE",
+                is_plagiarized=False,
                 matches=[],
             )
 
@@ -259,8 +262,10 @@ class PlagiarismDetector:
             text=chunk.text,
             max_similarity=max_similarity,
             status=status,
+            is_plagiarized=(status != "SAFE"),
             best_match_doc_id=max_result.document_id,
             best_match_title=max_result.document_title,
+            best_match_text=max_result.matched_text,
             matches=combined_results,
         )
 

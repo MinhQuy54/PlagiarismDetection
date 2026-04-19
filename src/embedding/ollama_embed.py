@@ -28,12 +28,12 @@ class OllamaEmbeddingClient:
         try:
             response = self.client.get("/api/tags")
             if response.status_code == 200:
-                models = response.json().get("model", [])
+                models = response.json().get("models", [])
                 model_name = [m["name"] for m in models]
                 has_embed_model = any(
                     self.model in name for name in model_name)
                 return {
-                    "heath_check" : True,
+                    "healthy" : True,
                     "models": model_name,
                     "embed_model_available": has_embed_model,
                 }
