@@ -77,33 +77,39 @@ class PdfProcessor:
             min_chunk_size=self.min_chunk_size, )
         
     def cut_page(self, elements: list[Element]) -> list[Element]:
-        
         element_entry = []
-        point_cut = 0
+        point_cut = False
         
         words_cut = ["MỤC LỤC", "TABLE OF CONTENTS", "DANH MỤC"]
         
+        # Kiểm tra xem có mục lục không
+        has_toc = False
         for e in elements:
-            
-            # Bỏ qua các element không có nội dung text
+            if e.text and any(word in e.text.upper() for word in words_cut):
+                has_toc = True
+                break
+        
+        if not has_toc:
+            return elements
+
+        for e in elements:
             if not e.text: continue
-            
             text = e.text.strip().upper()
             
             if not point_cut:
-                
                 if any(word in text for word in words_cut):
-                    # Tim thay muc luc -> bat dau cat
                     point_cut = True 
                     continue
-            else: element_entry.append(e)
+            else: 
+                element_entry.append(e)
         
-        return element_entry
+        return element_entry if element_entry else elements
     
     def process_pdf(
         self,
         pdf_path: str,
         document_id: str,
+        language: Optional[str] = None,
         extract_images: bool = False,
     ) -> PdfProcessingResult:
         
@@ -121,16 +127,26 @@ class PdfProcessor:
             
             print(f"[1/5] Loading PDF: {Path(pdf_path).name}...", flush=True)
             
+            # Determine languages for OCR
+            languages = ["eng"]
+            if language:
+                if language == "vi" or language == "vie":
+                    languages = ["vie", "eng"]
+                else:
+                    languages = [language, "eng"]
+            
             elements_tmp = partition_pdf(
                 filename=pdf_path,
                 strategy="hi_res",  # hi_res: with OCR + deep learning
-                ocr_agent="unstructured.partition.utils.ocr_models.paddle_ocr.OCRAgentPaddle",
+                languages=languages,
                 include_page_breaks=True,
                 infer_table_structure=True,
                 extract_images_in_pdf=extract_images,
             )
             
+            logger.info(f"Unstructured extracted {len(elements_tmp)} raw elements")
             elements = self.cut_page(elements_tmp)
+            logger.info(f"After cut_page, {len(elements)} elements remain")
 
             print(f"[2/5] PDF loaded - extracted {len(elements)} elements", flush=True)
             
@@ -230,21 +246,20 @@ class PdfProcessor:
                 # Nếu current_title là None, nội dung hiện tại (Introduction) sẽ bị bỏ qua
                 # và current_content sẽ được reset ở bước tiếp theo.
                 if current_content:
-                    if current_content is not None:
-                        selection = self._create_selection(
-                            title=current_title,
-                            content_parts=current_content,
-                            element_types=current_types,
-                            position=position,
-                        )
-                        if selection:
-                            sections.append(selection)
-                            position +=1
+                    section = self._create_section(
+                        title=current_title,
+                        content_parts=current_content,
+                        element_types=current_types,
+                        position=position,
+                    )
+                    if section:
+                        sections.append(section)
+                        position += 1
                             
                 # Start new section
                 current_title = new_title or "Untitled Section"
-                current_content = []
-                current_types = []
+                current_content = [current_title] # Include title in content
+                current_types = [el_type]
                 
                 
             # Add content (dành cho CONTENT_TYPES và các elements bị loại trừ)
@@ -308,10 +323,11 @@ class PdfProcessor:
         skipped_count = 0
         
         for section in sections:
-            # Skip sections with content shorter than 200 characters
+            # Skip sections with content shorter than 10 characters
+                # logger.info(f"Section '{section.section_title}' content length: {len(section.content)}")
             if len(section.content) < self.settings.min_content_length:
                 skipped_count += 1
-                logger.debug(
+                logger.info(
                     f"Skipping short section '{section.section_title}': "
                     f"{len(section.content)} chars < {self.settings.min_content_length}"
                 )

@@ -279,7 +279,7 @@ class DocumentManager:
             "ollama_health": self.ollama_client.health_check(),
         }
     
-    def upload_pdf_form_minio(
+    def upload_pdf_from_minio(
         self,
         bucket_name: str,
         object_path: str,
@@ -337,6 +337,7 @@ class DocumentManager:
                 pdf_result = self.pdf_processor.process_pdf(
                     pdf_path=local_path,
                     document_id=doc_id,
+                    language=language,
                 )
                 if not pdf_result.success:
                     return PdfUploadResult(

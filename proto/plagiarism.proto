@@ -226,6 +226,7 @@ message PdfChunkInfo {
     string content_preview = 3;         
     string element_type = 4;            
     int32 position = 5;
+    int32 word_count = 6;
 }
 message PdfProcessingMetadata {
   int32 total_pages = 1;

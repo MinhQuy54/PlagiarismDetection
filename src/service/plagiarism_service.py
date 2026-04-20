@@ -369,7 +369,7 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
                 return plagiarism_pb2.IndexDocumentFromMinioResponse(
                     success=False,
                     document_id=result.document_id,
-                    error_message=result.error_message,
+                    message=result.error_message,
                 )
 
             # Build chunk info
@@ -386,24 +386,12 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
                     )
                 )
 
-            # Build processing metadata
-            proc_meta = result.processing_metadata
-            processing_metadata = plagiarism_pb2.PdfProcessingMetadata(
-                total_pages=proc_meta.get("total_pages", 0),
-                total_elements=proc_meta.get("total_elements", 0),
-                total_chunks=proc_meta.get("total_chunks", 0),
-                processing_time_ms=proc_meta.get("processing_time_ms", 0),
-                pdf_title=proc_meta.get("pdf_title", ""),
-                pdf_author=proc_meta.get("pdf_author", ""),
-            )
-
             return plagiarism_pb2.IndexDocumentFromMinioResponse(
                 success=True,
                 document_id=result.document_id,
                 title=result.title,
-                total_chunks=result.total_chunks,
                 chunks=chunks,
-                processing_metadata=processing_metadata,
+                message="Successfully indexed PDF"
             )
 
         except Exception as e:
@@ -412,7 +400,7 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
             context.set_details(str(e))
             return plagiarism_pb2.IndexDocumentFromMinioResponse(
                 success=False,
-                error_message=str(e),
+                message=str(e),
             )
 
     def CheckPdfFromMinio(
@@ -523,13 +511,10 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
         return plagiarism_pb2.CheckDocumentFromMinioResponse(
             success=result.success,
             request_id=result.request_id,
-            document_title=result.document_title,
             plagiarism_percentage=result.plagiarism_percentage,
             severity=severity_map.get(result.severity, plagiarism_pb2.SAFE),
             explanation=result.explanation,
             matches=matches,
-            chunks=chunks,
-            metadata=metadata,
             error_message=result.error_message,
         )
 
