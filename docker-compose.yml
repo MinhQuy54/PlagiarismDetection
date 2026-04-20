@@ -84,6 +84,19 @@ services:
     volumes:
       - minio_data:/data
 
+  ui:
+    build: .
+    container_name: plagiarism-ui
+    command: streamlit run src/ui/app.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - GRPC_SERVER=app:50051
+    depends_on:
+      - app
+    volumes:
+      - .:/app
+
 volumes:
   es_data:
     driver: local
