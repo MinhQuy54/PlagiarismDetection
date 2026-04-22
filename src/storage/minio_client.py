@@ -118,6 +118,89 @@ class MinioClient:
                 os.remove(local_path)
             return None
 
+    def upload_file(
+        self,
+        bucket_name: str,
+        object_path: str,
+        file_path: str,
+        content_type: str = "application/octet-stream",
+    ) -> bool:
+        """
+        Upload a file to MinIO from a local path.
+
+        Args:
+            bucket_name: MinIO bucket name
+            object_path: Path in bucket
+            file_path: Local path to file
+            content_type: MIME type
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            # Ensure bucket exists
+            if not self.bucket_exists(bucket_name):
+                logger.info(f"Creating bucket: {bucket_name}")
+                self.client.make_bucket(bucket_name)
+
+            self.client.fput_object(
+                bucket_name=bucket_name,
+                object_name=object_path,
+                file_path=file_path,
+                content_type=content_type,
+            )
+            logger.info(f"Uploaded {file_path} to {bucket_name}/{object_path}")
+            return True
+        except S3Error as e:
+            logger.error(f"Failed to upload file: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error uploading file: {e}")
+            return False
+
+    def upload_fileobj(
+        self,
+        bucket_name: str,
+        object_path: str,
+        data,
+        length: int,
+        content_type: str = "application/octet-stream",
+    ) -> bool:
+        """
+        Upload a file-like object to MinIO.
+
+        Args:
+            bucket_name: MinIO bucket name
+            object_path: Path in bucket
+            data: File-like object or bytes
+            length: Length of data
+            content_type: MIME type
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            # Ensure bucket exists
+            if not self.bucket_exists(bucket_name):
+                logger.info(f"Creating bucket: {bucket_name}")
+                self.client.make_bucket(bucket_name)
+
+            self.client.put_object(
+                bucket_name=bucket_name,
+                object_name=object_path,
+                data=data,
+                length=length,
+                content_type=content_type,
+            )
+            logger.info(f"Uploaded fileobj to {bucket_name}/{object_path}")
+            return True
+        except S3Error as e:
+            logger.error(f"Failed to upload fileobj: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return False
+
     def download_file_to_memory(
         self, bucket_name: str, object_path: str
     ) -> Optional[bytes]:

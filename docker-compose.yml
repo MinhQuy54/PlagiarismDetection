@@ -30,41 +30,15 @@ services:
     ports:
       - "${GRPC_PORT:-50051}:${GRPC_PORT:-50051}"
       - "${METRICS_PORT:-9107}:${METRICS_PORT:-9107}"
+    env_file:
+      - .env
     environment:
-      # Elasticsearch
       - ES_HOST=elasticsearch
-      - ES_PORT=9200
-      - ES_USER=${ES_USER}
-      - ES_PASSWORD=${ES_PASSWORD}
-      - ES_SCHEME=${ES_SCHEME:-http}
-      - ES_INDEX=${ES_INDEX:-plagiarism_documents}
-      # Analyzer
-      - ANALYZER_MODE=${ANALYZER_MODE:-external}
-      # # Gemini
-      # - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      # - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
-      # Ollama
       - OLLAMA_HOST=http://host.docker.internal:11434
-      # gRPC
-      - GRPC_HOST=0.0.0.0
-      - GRPC_PORT=${GRPC_PORT:-50051}
-      - GRPC_MAX_WORKERS=${GRPC_MAX_WORKERS:-3}
-      # TLS - paths inside container
-      - GRPC_TLS_ENABLED=${GRPC_TLS_ENABLED:-false}
+      - MINIO_ENDPOINT=minio
       - GRPC_CERT_PATH=/app/certs/plagiarism-server.crt
       - GRPC_KEY_PATH=/app/certs/plagiarism-server.key
       - GRPC_CA_PATH=/app/certs/ca.crt
-      - GRPC_REQUIRE_CLIENT_CERT=${GRPC_REQUIRE_CLIENT_CERT:-false}
-      # MinIO
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
-      - MINIO_PORT=${MINIO_PORT}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - MINIO_USE_SSL=${MINIO_USE_SSL}
-      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
-      # Logging
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - METRICS_PORT=${METRICS_PORT:-9107}
     volumes:
       - ./certs:/app/certs:ro
       - ./logs:/app/logs

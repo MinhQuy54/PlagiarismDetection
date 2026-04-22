@@ -179,6 +179,9 @@ class ElasticsearchClient:
 
     def index_document(self, document: DocumentData) -> bool:
         """Index a document and its chunks."""
+        # Ensure indices exist with correct mappings before indexing
+        self.create_index()
+        
         try:
             # Index main document
             doc_body = {
@@ -196,6 +199,7 @@ class ElasticsearchClient:
                 index=self.index_name,
                 id=document.document_id,
                 document=doc_body,
+                refresh=True,
             )
 
             # Index chunks with embeddings
@@ -216,6 +220,7 @@ class ElasticsearchClient:
                     index=chunks_index,
                     id=chunk.chunk_id,
                     document=chunk_body,
+                    refresh=True,
                 )
 
             # Refresh to make documents searchable immediately
