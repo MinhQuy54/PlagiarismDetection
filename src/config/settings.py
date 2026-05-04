@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     ollama_chat_model: str = Field(
         default="llama3.2", description="Chat model for analysis"
     )
-    ollama_timeout: int = Field(default=60, description="Request timeout in seconds")
+    ollama_timeout: int = Field(default=120, description="Request timeout in seconds")
 
     # Gemini (external mode)
     gemini_api_key: str = Field(

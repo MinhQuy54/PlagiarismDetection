@@ -27,7 +27,7 @@ class PlagiarismService(plagiarism_pb2_grpc.PlagiarismServiceServicer):
     def CheckPlagiarism(
         self,
         request: plagiarism_pb2.CheckRequest,
-        context: grpc.ServicerContext
+        context: grpc.ServicerContext # set status gRPC
         ) -> plagiarism_pb2.CheckResponse:
         """Check plagiarism between two documents."""
         try:

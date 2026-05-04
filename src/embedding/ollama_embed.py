@@ -32,6 +32,7 @@ class OllamaEmbeddingClient:
                 model_name = [m["name"] for m in models]
                 has_embed_model = any(
                     self.model in name for name in model_name)
+                
                 return {
                     "healthy" : True,
                     "models": model_name,

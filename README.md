@@ -42,7 +42,7 @@ python tests/test_client.py
 ```
 
 ## Tài liệu API
-Xem chi tiết tại `docs/API.md`
+Xem chi tiết tại [docs/API.md](docs/API.md)
 
 ## Cấu hình quan trọng (.env)
 - `CHUNK_SIZE`: Độ dài đoạn văn để phân tích (Khuyên dùng: 150).

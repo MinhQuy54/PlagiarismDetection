@@ -27,18 +27,19 @@ class BaseAnalyzer(ABC):
         pass
     
     def _format_matches(self, matches: list[dict]) -> str:
-        
-        formatted = []
+        """Format matches for the prompt."""
         if not matches:
-            return "No matches found"
-        
+            return "Không tìm thấy kết quả tương tự."
+
+        formatted = []
         for i, match in enumerate(matches[:5], 1):
             formatted.append(
-                f""" 
-                Match {i}: 
-                - Source: {match.get('source', 'Unknown')}
-                - Similarity: {match.get('similarity', 0):.2%}
-                - Matched Text: {match.get('matched_text', '')[:200]}...
+                f"""
+                Kết quả {i}:
+                - Nguồn: {match.get('document_title', 'Unknown')}
+                - Độ tương đồng: {match.get('similarity_score', 0):.1%}
+                - Nội dung trùng khớp:
+                \"\"\"{match.get('matched_text', '')[:500]}\"\"\"
                 """
             )
         return "\n".join(formatted)
@@ -80,33 +81,53 @@ class BaseAnalyzer(ABC):
 
         Chỉ trả về JSON, không có text khác."""
     
-    def _parse_response(self, response_text: str, base_percentage : float) -> AnalysisResult:
+    def _parse_response(self, response_text: str, base_percentage: float) -> AnalysisResult:
+        """Parse AI response to AnalysisResult with robust JSON extraction."""
         try:
             response_text = response_text.strip()
-            data = json.loads(response_text)
             
+            # Find the first '{' and last '}' to extract JSON
+            start_idx = response_text.find("{")
+            end_idx = response_text.rfind("}")
+            
+            if start_idx != -1 and end_idx != -1:
+                json_str = response_text[start_idx : end_idx + 1]
+            else:
+                json_str = response_text
+
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError as je:
+                # Basic fix for common LLM truncation
+                if "Unterminated string" in str(je) or "Expecting" in str(je):
+                    fixed_json = json_str
+                    if fixed_json.count('"') % 2 != 0:
+                        fixed_json += '"'
+                    if fixed_json.count('{') > fixed_json.count('}'):
+                        fixed_json += '}' * (fixed_json.count('{') - fixed_json.count('}'))
+                    data = json.loads(fixed_json)
+                else:
+                    raise je
+
             return AnalysisResult(
                 plagiarism_percentage=float(data.get("plagiarism_percentage", base_percentage)),
                 severity=data.get("severity", self._get_severity(base_percentage)),
-                explanation=data.get("explanation", "No Analysis Detail"),
+                explanation=data.get("explanation", "Không có phân tích chi tiết."),
                 suspicious_segments=data.get("suspicious_segments", []),
-                confidence=float(data.get("confidence", 0.0)),
+                confidence=float(data.get("confidence", 0.8)),
             )
         except Exception as e:
-            logger.error(f"Error parsing analysis response: {e}")
-            return AnalysisResult(
-                plagiarism_percentage=base_percentage,
-                severity=self._get_severity(base_percentage),
-                explanation="Error parsing analysis response",
-                suspicious_segments=[],
-                confidence=0.0,
-            )
+            logger.warning(f"Failed to parse AI response: {e}")
+            logger.debug(f"Raw response was: {response_text}")
+            return self._fallback_result(base_percentage)
+
     
-    def _fallack_severity(self, percentage: float) -> AnalysisResult:
+    def _fallback_result(self, percentage: float) -> AnalysisResult:
+        """Fallback result when AI analysis fails."""
         return AnalysisResult(
             plagiarism_percentage=percentage,
             severity=self._get_severity(percentage),
-            explanation="Phân tích dựa trên độ tương đồng vector. AI analysis không khả dụng.",
+            explanation="Phân tích dựa trên độ tương đồng vector. AI analysis không khả dụng hoặc bị lỗi.",
             suspicious_segments=[],
             confidence=0.6,
         )
@@ -158,14 +179,11 @@ class OllamaAnalyzer(BaseAnalyzer):
                     "prompt": prompt,
                     "stream": False,
                     "options": {
-                        "temperature": 0.2,
+                        "temperature": 0.1,  # Giảm temperature để output JSON ổn định hơn
                         "top_p": 0.9,
                         "top_k": 40,
-                        "num_predict": 500, # Giới hạn độ dài
+                        "num_predict": 1024, # Tăng giới hạn để tránh bị cắt ngang JSON
                         "repeat_penalty": 1.1,
-                        "presence_penalty": 0.0,
-                        "frequency_penalty": 0.0,
-                        "stop": ["\n\n"],
                     }
                 },
             )
@@ -174,7 +192,7 @@ class OllamaAnalyzer(BaseAnalyzer):
             return self._parse_response(data.get("response", ""), base_percentage)
         except Exception as e:
             logger.error(f"Ollama analysis failed: {e}")
-            return self._fallack_severity(base_percentage)
+            return self._fallback_result(base_percentage)
     
     
 _analyzer: Optional[BaseAnalyzer] = None
