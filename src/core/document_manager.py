@@ -105,6 +105,7 @@ class DocumentManager:
                     )
                     
                 )
+                
             # Create document data
             doc_data = DocumentData(
                 document_id=doc_id,

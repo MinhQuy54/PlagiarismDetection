@@ -9,6 +9,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class TextChunk:
+    """
+    Represents a chunk of text with its position and character offsets.
+    """
     text: str
     position: int
     start_char: int
@@ -16,6 +19,14 @@ class TextChunk:
     word_count: int
 
 class TextChunker:
+    """
+    A utility class for chunking text into smaller segments with overlap.
+     
+    Attributes:
+        chunk_size: Number of words per chunk (default: 200).
+        chunk_overlap: Number of words to overlap between chunks (default: 20).
+        min_chunk_size: Minimum number of words required to form a chunk (default: 50).
+    """
     def __init__(
         self, 
         chunk_size: Optional[int] = None,
@@ -27,7 +38,7 @@ class TextChunker:
         self.chunk_overlap = chunk_overlap or settings.chunk_overlap
         self.min_chunk_size = min_chunk_size or settings.min_chunk_size
     
-    # OverLap : a[] 0 - 10 --> b[] 8 - 18 
+    # OverLap : a[] 0 - 10 --> b[] 8 - 18 (overlap: 2 -> 10 - 8)
     def chunk_text(self, text: str) -> list[TextChunk]:
         # Normalize text first
         text = self.normalize_text(text)
@@ -98,12 +109,20 @@ class TextChunker:
         try:
             if len(text) < 20:
                 return "unknown"
-            lang = detect(text)
+            lang = detect(text) # returns language code (e.g., 'en', 'vi')
             return lang
         except LangDetectException:
             return "unknown"
     
     def split_into_sentences(self, text: str) -> list[str]:
+        """Split text into sentences"
+
+        Args:
+            text (str): text to split
+
+        Returns:
+            list[str]: list of sentences
+        """
         text = self.normalize_text(text)
 
         sentences = re.split(r"(?<=[.!?])\s+", text)
@@ -112,7 +131,16 @@ class TextChunker:
         return sentences
 
     def chunk_by_sentence(self, text: str, max_sentences: int = 5) -> list[TextChunk]:
-        sentences = self.split_by_sentence(text)
+        """Chunk text by sentences.
+
+        Args:
+            text (str): text to chunk
+            max_sentences (int): maximum number of sentences per chunk
+
+        Returns:
+            list[TextChunk]: list of chunks
+        """
+        sentences = self.split_into_sentences(text)
         if not sentences:
             return []
         chunks = []

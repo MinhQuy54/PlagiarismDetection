@@ -37,7 +37,7 @@ def normalize_for_comparison(text: str) -> str:
     # Lowercase
     text = text.lower()
 
-    # Remove citations like (Nguyen, 2024), (Phát và đtg, 2024)
+    # Remove citations like (Quy, 2004), (Nhan và dtn, 2004)
     text = re.sub(r'\([^)]*\d{4}[^)]*\)', '', text)
 
     # Remove special characters, keep only letters and spaces

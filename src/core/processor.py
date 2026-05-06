@@ -85,7 +85,7 @@ class PdfProcessor:
         # Kiểm tra xem có mục lục không
         has_toc = False
         for e in elements:
-            if e.text and any(word in e.text.upper() for word in words_cut):
+            if e.text and any(w in e.text.upper() for w in words_cut):
                 has_toc = True
                 break
         
@@ -102,7 +102,6 @@ class PdfProcessor:
                     continue
             else: 
                 element_entry.append(e)
-        
         return element_entry if element_entry else elements
     
     def process_pdf(
@@ -122,7 +121,7 @@ class PdfProcessor:
                 error_message=f"PDF file not found: {pdf_path}",
             )
         try:
-            # Extract elements from PDF using unstructured
+            # Extract elements from PDF using unstructured -> bien PDF thanh list
             logger.info(f"Processing PDF: {pdf_path}")
             
             print(f"[1/5] Loading PDF: {Path(pdf_path).name}...", flush=True)
@@ -164,7 +163,7 @@ class PdfProcessor:
             # Group elements by sections
             print("[4/5] Grouping elements into sections...", flush=True)
             sections = self._group_into_sections(elements)
-            print(f"       Created {len(sections)} sections", flush=True)
+            print(f"Created {len(sections)} sections", flush=True)
             
             # Chunk sections into smaller chunks
             print("[5/5] Converting sections to chunks...", flush=True)

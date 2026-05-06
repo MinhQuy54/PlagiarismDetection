@@ -1,8 +1,8 @@
 import streamlit as st
 import grpc
+import html
 import os
 import sys
-import pandas as pd
 from pathlib import Path
 
 # Add project root to sys.path to import generated grpc files
@@ -16,7 +16,6 @@ GRPC_SERVER = os.getenv("GRPC_SERVER", "localhost:50051")
 
 st.set_page_config(
     page_title="AI Plagiarism Detector",
-    page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -63,32 +62,40 @@ def get_grpc_stub():
     channel = grpc.insecure_channel(GRPC_SERVER)
     return plagiarism_pb2_grpc.PlagiarismServiceStub(channel)
 
+
+def format_severity(severity: int) -> str:
+    return plagiarism_pb2.Severity.Name(severity).title()
+
+
 def main():
-    st.title("🔍 AI Plagiarism Detection System")
+    st.title("AI Plagiarism Detection System")
     st.markdown("---")
 
     stub = get_grpc_stub()
 
     # Sidebar - System Status
     with st.sidebar:
-        st.header("⚙️ System Control")
-        if st.button("🔄 Refresh System Status"):
+        st.header("System Control")
+        if st.button("Refresh System Status"):
             try:
-                health = stub.HealthCheck(plagiarism_pb2.HealthCheckRequest())
-                st.success("✅ System Online")
+                health = stub.HealthCheck(plagiarism_pb2.HealthCheckRequest(), timeout=5)
+                if health.healthy:
+                    st.success("System online")
+                else:
+                    st.warning("System responded, but one or more services are not healthy")
                 for key, val in health.details.items():
                     st.write(f"**{key.capitalize()}:** {val}")
             except Exception as e:
-                st.error(f"❌ Connection Failed: {e}")
+                st.error(f"Connection failed: {e}")
         
         st.markdown("---")
         st.info("Project: End-to-End Plagiarism Detection with RAG & gRPC")
 
     # Tabs for different functionalities
-    tab_check, tab_upload, tab_stats = st.tabs(["🚀 Check Plagiarism", "📁 Library Manager", "📊 Statistics"])
+    tab_check, tab_upload, tab_stats = st.tabs(["Check Plagiarism", "Library Manager", "Statistics"])
 
     with tab_check:
-        st.subheader("📝 Content Analysis")
+        st.subheader("Content Analysis")
         col1, col2 = st.columns([2, 1])
 
         with col1:
@@ -96,9 +103,10 @@ def main():
             
             with st.expander("Advanced Options"):
                 sim_threshold = st.slider("Similarity Threshold", 0.0, 1.0, 0.5)
+                top_k = st.number_input("Maximum Matches", min_value=1, max_value=50, value=10)
                 include_ai = st.checkbox("Include AI Deep Analysis", value=True)
 
-            if st.button("🔍 Run Plagiarism Check", type="primary"):
+            if st.button("Run Plagiarism Check", type="primary"):
                 if not input_text.strip():
                     st.warning("Please enter some text.")
                 else:
@@ -106,21 +114,20 @@ def main():
                         try:
                             request = plagiarism_pb2.CheckRequest(
                                 text=input_text,
-                                options=plagiarism_pb2.DetectionOptions(
+                                options=plagiarism_pb2.CheckOptions(
                                     min_similarity=sim_threshold,
+                                    top_k=top_k,
                                     include_ai_analysis=include_ai
                                 )
                             )
-                            response = stub.CheckPlagiarism(request)
+                            response = stub.CheckPlagiarism(request, timeout=60)
                             
                             # Display Result Summary
-                            st.markdown("### 🎯 Analysis Results")
+                            st.markdown("### Analysis Results")
                             m1, m2, m3 = st.columns(3)
                             
-                            color_class = "plagiarism-high" if response.plagiarism_percentage > 70 else "plagiarism-med" if response.plagiarism_percentage > 30 else "plagiarism-low"
-                            
-                            m1.metric("Plagiarism Score", f"{response.plagiarism_percentage}%")
-                            m2.metric("Severity", response.severity)
+                            m1.metric("Plagiarism Score", f"{response.plagiarism_percentage:.2f}%")
+                            m2.metric("Severity", format_severity(response.severity))
                             m3.metric("Matches Found", len(response.matches))
 
                             if response.explanation:
@@ -128,14 +135,16 @@ def main():
 
                             # Detailed Matches
                             if response.matches:
-                                st.markdown("#### 🔗 Top Matches Found")
-                                for i, match in enumerate(response.matches):
+                                st.markdown("#### Top Matches Found")
+                                for match in response.matches:
+                                    title = html.escape(match.document_title or "Untitled source")
+                                    matched_text = html.escape(match.matched_text)
                                     with st.container():
                                         st.markdown(f"""
                                         <div class="highlight-box">
-                                            <strong>Source:</strong> {match.document_title} <br/>
+                                            <strong>Source:</strong> {title} <br/>
                                             <strong>Similarity:</strong> {match.similarity_score:.2f} <br/>
-                                            <p style="margin-top:10px"><em>"...{match.matched_text}..."</em></p>
+                                            <p style="margin-top:10px"><em>"...{matched_text}..."</em></p>
                                         </div>
                                         """, unsafe_allow_html=True)
                             else:
@@ -154,28 +163,26 @@ def main():
             """)
 
     with tab_upload:
-        st.subheader("📚 Document Indexing")
-        st.write("Upload reference documents to the knowledge base.")
+        st.subheader("Document Indexing")
+        st.write("Index reference documents that already exist in the MinIO bucket.")
         
-        up_col1, up_col2 = st.columns(2)
+        up_col1, _ = st.columns(2)
         
         with up_col1:
-            uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
+            object_path = st.text_input("MinIO object path", placeholder="example.pdf")
+            title = st.text_input("Document title", placeholder="Optional")
             language = st.selectbox("Document Language", ["vi", "en"])
             
-            if st.button("📤 Upload & Index"):
-                if uploaded_file:
-                    st.warning("Note: Direct upload to MinIO needs to be implemented via backend. Using IndexPdfFromMinio for demo.")
-                    st.info("For Demo: Ensure file exists in MinIO bucket 'plagiarism-docs'")
-                    
+            if st.button("Index Document"):
+                if object_path.strip():
                     try:
-                        # Assuming the file is already in MinIO or we provide path
                         req = plagiarism_pb2.IndexDocumentFromMinioRequest(
                             bucket_name="plagiarism-docs",
-                            object_path=uploaded_file.name,
+                            object_path=object_path.strip(),
+                            title=title.strip(),
                             language=language
                         )
-                        res = stub.IndexPdfFromMinio(req)
+                        res = stub.IndexPdfFromMinio(req, timeout=120)
                         if res.success:
                             st.success(f"Successfully indexed: {res.title}")
                             st.write(f"Chunks created: {len(res.chunks)}")
@@ -184,18 +191,34 @@ def main():
                     except Exception as e:
                         st.error(f"Error: {e}")
                 else:
-                    st.error("Please select a file.")
+                    st.error("Please enter a MinIO object path.")
 
     with tab_stats:
-        st.subheader("📈 Database Statistics")
+        st.subheader("Database Statistics")
         try:
-            stats = stub.GetStats(plagiarism_pb2.StatsRequest())
-            col_s1, col_s2, col_s3 = st.columns(3)
-            col_s1.metric("Total Documents", stats.total_documents)
-            col_s2.metric("Total Chunks", stats.total_chunks)
-            col_s3.metric("Storage Used", f"{stats.storage_size_bytes / 1024 / 1024:.2f} MB")
+            health = stub.HealthCheck(plagiarism_pb2.HealthCheckRequest(), timeout=5)
+            search = stub.SearchDocuments(plagiarism_pb2.SearchRequest(limit=5), timeout=10)
+
+            col_s1, col_s2 = st.columns(2)
+            col_s1.metric("Service Health", "Healthy" if health.healthy else "Degraded")
+            col_s2.metric("Total Documents", search.total)
+
+            if search.documents:
+                st.markdown("#### Recent Documents")
+                rows = [
+                    {
+                        "Title": doc.title,
+                        "Language": doc.language,
+                        "Chunks": doc.chunk_count,
+                        "Created At": doc.created_at,
+                    }
+                    for doc in search.documents
+                ]
+                st.dataframe(rows, use_container_width=True, hide_index=True)
+            else:
+                st.info("No documents found.")
         except Exception as e:
-            st.write("Could not fetch statistics.")
+            st.error(f"Could not fetch statistics: {e}")
 
 if __name__ == "__main__":
     main()
