@@ -136,10 +136,10 @@ class PdfProcessor:
             
             elements_tmp = partition_pdf(
                 filename=pdf_path,
-                strategy="hi_res",  # hi_res: with OCR + deep learning
+                strategy="auto",  # 'auto' is much faster than 'hi_res'
                 languages=languages,
                 include_page_breaks=True,
-                infer_table_structure=True,
+                infer_table_structure=False, # Disable for better performance
                 extract_images_in_pdf=extract_images,
             )
             

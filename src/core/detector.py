@@ -205,7 +205,7 @@ class PlagiarismDetector:
             explanation = self._generate_explanation(base_percentage, len(all_matches))
 
         # Step 6: Deduplicate and sort matches
-        unique_matches = self._deduplicate_matches(all_matches)
+        unique_matches = self._deduplicate_matches(all_matches)[:top_k]
 
         # Calculate processing time
         processing_time_ms = int((time.time() - start_time) * 1000)
@@ -589,7 +589,7 @@ class PlagiarismDetector:
                 plagiarism_percentage=final_percentage,
                 severity=severity,
                 explanation=explanation,
-                matches=self._deduplicate_matches(all_matches),
+                matches=self._deduplicate_matches(all_matches)[:top_k],
                 chunk_analysis=chunk_results,
                 metadata=PdfCheckMetadata(
                     processing_time_ms=int((time.time() - start_time) * 1000),

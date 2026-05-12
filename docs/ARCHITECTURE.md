@@ -10,17 +10,22 @@ Hệ thống phát hiện đạo văn hiện đại sử dụng kết hợp:
 ### 1.1 Flow xử lý (Logic Flow)
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────────┐     ┌─────────────┐
-│   Client    │────▶│  gRPC API   │────▶│  Plagiarism     │────▶│ Elasticsearch│
-│  (Text/PDF) │     │  Service    │     │  Engine         │     │  (Storage)   │
-└─────────────┘     └─────────────┘     └─────────────────┘     └─────────────┘
-                                               │
-                                               ▼
-                                        ┌─────────────┐
-                                        │   Ollama    │
-                                        │ (Embedding  │
-                                        │  + AI)      │
-                                        └─────────────┘
+   ┌─────────────┐       ┌─────────────┐       ┌─────────────┐
+   │    INPUT    │       │ PRE-PROCESS │       │  EMBEDDING  │
+   │ (Text/PDF)  │──────▶│ (Chunking)  │──────▶│  (Ollama)   │
+   └─────────────┘       └─────────────┘       └──────┬──────┘
+                                                      │
+                                                      ▼
+   ┌─────────────┐       ┌─────────────┐       ┌─────────────┐
+   │   OUTPUT    │       │AI EVALUATION│       │HYBRID SEARCH│
+   │ (GRPC Rep)  │◀──────│ (Llama 3.2) │◀──────│(ES Vector)  │
+   └─────────────┘       └─────────────┘       └─────────────┘
+                                                      ▲
+                                                      │
+                                               ┌─────────────┐
+                                               │Elasticsearch│
+                                               │ (Data Pool) │
+                                               └─────────────┘
 ```
 
 ## 2. Các thành phần chính
