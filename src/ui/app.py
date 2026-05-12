@@ -130,6 +130,12 @@ def get_severity_class(severity: int) -> str:
     name = plagiarism_pb2.Severity.Name(severity).lower()
     return f"severity-{name}"
 
+def delete_indexed_document(stub, document_id: str):
+    return stub.DeleteDocument(
+        plagiarism_pb2.DeleteDocumentRequest(document_id=document_id),
+        timeout=30,
+    )
+
 def main():
     st.title("AI Plagiarism Detection")
     st.caption("Enterprise-grade content integrity system powered by RAG and Llama 3.2")
@@ -369,6 +375,51 @@ def main():
                             st.error(res.message)
                     except Exception as e:
                         st.error(f"Error: {e}")
+
+        st.markdown("---")
+        st.subheader("Indexed Documents")
+        st.write("Remove documents from the reference database when they should no longer be used for comparisons.")
+
+        try:
+            library = stub.SearchDocuments(plagiarism_pb2.SearchRequest(limit=50), timeout=10)
+
+            if library.documents:
+                for doc in library.documents:
+                    row_cols = st.columns([4, 1, 1, 2])
+                    doc_id = doc.document_id
+                    pending_delete_id = st.session_state.get("pending_delete_document_id")
+
+                    with row_cols[0]:
+                        st.markdown(f"**{doc.title or 'Untitled'}**")
+                        st.caption(f"ID: {doc_id}")
+                    row_cols[1].write(doc.language.upper() if doc.language else "-")
+                    row_cols[2].write(f"{doc.chunk_count} chunks")
+
+                    with row_cols[3]:
+                        if pending_delete_id == doc_id:
+                            confirm_cols = st.columns(2)
+                            if confirm_cols[0].button("Confirm", key=f"confirm_delete_{doc_id}", type="primary"):
+                                try:
+                                    result = delete_indexed_document(stub, doc_id)
+                                    if result.success:
+                                        st.success(result.message)
+                                        st.session_state.pop("pending_delete_document_id", None)
+                                        st.rerun()
+                                    else:
+                                        st.error(result.message)
+                                except Exception as e:
+                                    st.error(f"Delete failed: {e}")
+
+                            if confirm_cols[1].button("Cancel", key=f"cancel_delete_{doc_id}"):
+                                st.session_state.pop("pending_delete_document_id", None)
+                                st.rerun()
+                        elif st.button("Delete", key=f"delete_{doc_id}", use_container_width=True):
+                            st.session_state["pending_delete_document_id"] = doc_id
+                            st.rerun()
+            else:
+                st.info("No indexed documents to manage yet.")
+        except Exception as e:
+            st.error(f"Failed to load indexed documents: {e}")
 
     with tab_stats:
         st.subheader("System Analytics")
